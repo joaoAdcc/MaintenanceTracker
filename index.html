@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vehicle Maintenance Tracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333;
+    min-height: 100vh;
+  }
+  .app { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #1a1a2e; color: #fff; padding: 16px 24px;
+    border-radius: 10px; margin-bottom: 24px;
+  }
+  header h1 { font-size: 22px; }
+  header span { color: #e94560; }
+
+  .btn {
+    padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 14px; transition: 0.2s;
+  }
+  .btn-primary { background: #e94560; color: #fff; }
+  .btn-primary:hover { background: #c73652; }
+  .btn-secondary { background: #16213e; color: #fff; }
+  .btn-secondary:hover { background: #0f3460; }
+  .btn-danger { background: #dc3545; color: #fff; }
+  .btn-danger:hover { background: #b02a37; }
+  .btn-sm { padding: 4px 12px; font-size: 12px; }
+
+  .vehicles { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+  .card {
+    background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .card-header {
+    background: #16213e; color: #fff; padding: 14px 18px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-header h3 { font-size: 16px; }
+  .card-body { padding: 16px 18px; }
+
+  .stat-group { display: flex; gap: 12px; margin-bottom: 14px; }
+  .stat {
+    flex: 1; text-align: center; padding: 10px;
+    background: #f8f9fa; border-radius: 6px;
+  }
+  .stat label { font-size: 11px; text-transform: uppercase; color: #777; }
+  .stat .value { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .stat .unit { font-size: 12px; color: #888; }
+
+  .stat-group.inline { align-items: center; }
+  .stat-group.inline .stat { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+  .stat-group.inline .stat .value { font-size: 16px; }
+  .stat-group.inline input {
+    width: 80px; padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;
+    font-size: 14px;
+  }
+  .stat-group.inline .btn { margin-left: auto; }
+
+  .maint-list { list-style: none; }
+  .maint-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 10px; border-radius: 6px; margin-bottom: 4px;
+    font-size: 13px;
+  }
+  .maint-list li.ok { background: #d4edda; color: #155724; }
+  .maint-list li.due { background: #fff3cd; color: #856404; }
+  .maint-list li.overdue { background: #f8d7da; color: #721c24; font-weight: 600; }
+  .maint-list .interval { font-size: 11px; opacity: 0.8; }
+  .maint-list .actions { display: flex; gap: 4px; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    justify-content: center; align-items: center; z-index: 100;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #fff; border-radius: 10px; padding: 24px; width: 100%; max-width: 460px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  }
+  .modal h2 { margin-bottom: 16px; font-size: 18px; }
+  .modal label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; }
+  .modal input { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 12px; font-size: 14px; }
+  .modal .form-row { display: flex; gap: 12px; }
+  .modal .form-row > div { flex: 1; }
+  .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+
+  .empty { text-align: center; padding: 40px; color: #888; }
+  .empty p { margin-bottom: 12px; font-size: 16px; }
+
+  .toast-container {
+    position: fixed; top: 16px; right: 16px; z-index: 200;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    padding: 12px 18px; border-radius: 8px; color: #fff; font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2); animation: slideIn 0.3s ease;
+    max-width: 360px;
+  }
+  .toast.warn { background: #856404; }
+  .toast.danger { background: #721c24; }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  .notif-badge {
+    display: none; background: #e94560; color: #fff; border-radius: 50%;
+    width: 20px; height: 20px; font-size: 11px; font-weight: 700;
+    align-items: center; justify-content: center;
+  }
+  .notif-badge.show { display: inline-flex; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🔧 Vehicle <span>Maintenance</span> Tracker</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="notifBadge" class="notif-badge">0</span>
+      <button class="btn btn-primary" onclick="showModal('vehicle')">+ Add Vehicle</button>
+    </div>
+  </header>
+
+  <div id="appContent"></div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Vehicle Modal -->
+<div class="modal-overlay" id="vehicleModal">
+  <div class="modal">
+    <h2 id="vehicleModalTitle">Add Vehicle</h2>
+    <label>Name</label>
+    <input id="vName" placeholder="e.g. Toyota Hilux">
+    <label>Model / Year</label>
+    <input id="vModel" placeholder="e.g. 2022 SRV">
+    <label>License Plate</label>
+    <input id="vPlate" placeholder="e.g. ABC-1234">
+    <label>Initial Odometer (km)</label>
+    <input id="vKm" type="number" value="0">
+    <label>Initial Engine Hours</label>
+    <input id="vHours" type="number" value="0">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal('vehicle')">Cancel</button>
+      <button class="btn btn-primary" id="vehicleSaveBtn" onclick="saveVehicle()">Save</button>
+    </div>
+  </div>
+</div>
+
+  <!-- Trip Modal -->
+<div class="modal-overlay" id="tripModal">
+  <div class="modal">
+    <h2>Log Trip</h2>
+    <label>Trip Distance (km)</label>
+    <input id="tripKm" type="number" value="0" step="0.1">
+    <label>Engine Hours</label>
+    <input id="tripHours" type="number" value="0" step="0.1">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal('trip')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTrip()">Add Trip</button>
+    </div>
+  </div>
+</div>
+
+<!-- Maintenance Modal -->
+<div class="modal-overlay" id="maintModal">
+  <div class="modal">
+    <h2 id="maintModalTitle">Add Maintenance Task</h2>
+    <label>Task Name</label>
+    <input id="mName" placeholder="e.g. Oil Change">
+    <div class="form-row">
+      <div>
+        <label>Interval (km)</label>
+        <input id="mKm" type="number" value="0">
+      </div>
+      <div>
+        <label>Interval (hours)</label>
+        <input id="mHours" type="number" value="0">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal('maint')">Cancel</button>
+      <button class="btn btn-primary" id="maintSaveBtn" onclick="saveMaintenance()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'vm_tracker';
+  let data = { vehicles: [], nextId: 1 };
+  let editingVehicleId = null;
+  let editingMaintVehicleId = null;
+  let editingMaintId = null;
+  let tripVehicleId = null;
+
+  function loadData() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      try { data = JSON.parse(raw); } catch (e) { data = { vehicles: [], nextId: 1 }; }
+    }
+  }
+  function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function getVehicle(id) { return data.vehicles.find(v => v.id === id); }
+
+  function showModal(type, ...args) {
+    if (type === 'vehicle') {
+      document.getElementById('vehicleModal').classList.add('active');
+    } else if (type === 'maint') {
+      document.getElementById('maintModal').classList.add('active');
+    } else if (type === 'trip') {
+      document.getElementById('tripModal').classList.add('active');
+    }
+  }
+  function hideModal(type) {
+    if (type === 'vehicle') {
+      document.getElementById('vehicleModal').classList.remove('active');
+      editingVehicleId = null;
+    } else if (type === 'maint') {
+      document.getElementById('maintModal').classList.remove('active');
+      editingMaintVehicleId = null;
+      editingMaintId = null;
+    } else if (type === 'trip') {
+      document.getElementById('tripModal').classList.remove('active');
+      tripVehicleId = null;
+    }
+    clearModalFields(type);
+  }
+
+  function clearModalFields(type) {
+    if (type === 'vehicle') {
+      ['vName','vModel','vPlate','vKm','vHours'].forEach(id => document.getElementById(id).value = '');
+    } else if (type === 'maint') {
+      document.getElementById('mName').value = '';
+      document.getElementById('mKm').value = '0';
+      document.getElementById('mHours').value = '0';
+    } else if (type === 'trip') {
+      document.getElementById('tripKm').value = '0';
+      document.getElementById('tripHours').value = '0';
+    }
+  }
+
+  function logTrip(vehicleId) {
+    tripVehicleId = vehicleId;
+    clearModalFields('trip');
+    showModal('trip');
+  }
+
+  function saveTrip() {
+    const km = parseFloat(document.getElementById('tripKm').value) || 0;
+    const hours = parseFloat(document.getElementById('tripHours').value) || 0;
+    if (km === 0 && hours === 0) { alert('Enter at least km or hours for the trip'); return; }
+    const v = getVehicle(tripVehicleId);
+    if (!v) return;
+    if (!v.trips) v.trips = [];
+    v.trips.push({ km, hours, date: new Date().toISOString() });
+    v.odometerKm += km;
+    v.engineHours += hours;
+    saveData();
+    hideModal('trip');
+    render();
+  }
+
+  function saveVehicle() {
+    const name = document.getElementById('vName').value.trim();
+    const model = document.getElementById('vModel').value.trim();
+    const plate = document.getElementById('vPlate').value.trim();
+    const km = parseFloat(document.getElementById('vKm').value) || 0;
+    const hours = parseFloat(document.getElementById('vHours').value) || 0;
+    if (!name) { alert('Name is required'); return; }
+
+    if (editingVehicleId) {
+      const v = getVehicle(editingVehicleId);
+      v.name = name; v.model = model; v.plate = plate;
+      v.odometerKm = km; v.engineHours = hours;
+    } else {
+      data.vehicles.push({
+        id: data.nextId++,
+        name, model, plate,
+        odometerKm: km, engineHours: hours,
+        maintenance: []
+      });
+    }
+    saveData();
+    hideModal('vehicle');
+    render();
+  }
+
+  function editVehicle(id) {
+    const v = getVehicle(id);
+    if (!v) return;
+    editingVehicleId = id;
+    document.getElementById('vName').value = v.name;
+    document.getElementById('vModel').value = v.model || '';
+    document.getElementById('vPlate').value = v.plate || '';
+    document.getElementById('vKm').value = v.odometerKm;
+    document.getElementById('vHours').value = v.engineHours;
+    document.getElementById('vehicleModalTitle').textContent = 'Edit Vehicle';
+    showModal('vehicle');
+  }
+
+  function deleteVehicle(id) {
+    if (!confirm('Delete this vehicle?')) return;
+    data.vehicles = data.vehicles.filter(v => v.id !== id);
+    saveData();
+    render();
+  }
+
+  function addMaintClick(vehicleId) {
+    editingMaintVehicleId = vehicleId;
+    editingMaintId = null;
+    document.getElementById('maintModalTitle').textContent = 'Add Maintenance Task';
+    clearModalFields('maint');
+    showModal('maint');
+  }
+
+  function editMaintClick(vehicleId, maintId) {
+    const v = getVehicle(vehicleId);
+    const m = v.maintenance.find(item => item.id === maintId);
+    if (!m) return;
+    editingMaintVehicleId = vehicleId;
+    editingMaintId = maintId;
+    document.getElementById('mName').value = m.name;
+    document.getElementById('mKm').value = m.intervalKm;
+    document.getElementById('mHours').value = m.intervalHours;
+    document.getElementById('maintModalTitle').textContent = 'Edit Maintenance Task';
+    showModal('maint');
+  }
+
+  function saveMaintenance() {
+    const name = document.getElementById('mName').value.trim();
+    const km = parseFloat(document.getElementById('mKm').value) || 0;
+    const hours = parseFloat(document.getElementById('mHours').value) || 0;
+    if (!name) { alert('Task name is required'); return; }
+    if (km === 0 && hours === 0) { alert('Set at least km or hour interval'); return; }
+
+    const v = getVehicle(editingMaintVehicleId);
+    if (!v) return;
+
+    if (editingMaintId) {
+      const m = v.maintenance.find(item => item.id === editingMaintId);
+      if (m) { m.name = name; m.intervalKm = km; m.intervalHours = hours; }
+    } else {
+      v.maintenance.push({
+        id: Date.now(),
+        name, intervalKm: km, intervalHours: hours,
+        lastKm: v.odometerKm, lastHours: v.engineHours
+      });
+    }
+    saveData();
+    hideModal('maint');
+    render();
+  }
+
+  function deleteMaint(vehicleId, maintId) {
+    const v = getVehicle(vehicleId);
+    v.maintenance = v.maintenance.filter(m => m.id !== maintId);
+    saveData();
+    render();
+  }
+
+  function resetMaint(vehicleId, maintId) {
+    const v = getVehicle(vehicleId);
+    const m = v.maintenance.find(item => item.id === maintId);
+    if (m) { m.lastKm = v.odometerKm; m.lastHours = v.engineHours; }
+    saveData();
+    render();
+  }
+
+  function toggleUpdate(id) {
+    const el = document.getElementById(`manualUpdate_${id}`);
+    const btn = document.getElementById(`toggleBtn_${id}`);
+    if (el.style.display === 'none') {
+      el.style.display = 'flex';
+      btn.textContent = 'Hide';
+    } else {
+      el.style.display = 'none';
+      btn.textContent = 'Manual';
+    }
+  }
+
+  function updateReadings(id) {
+    const v = getVehicle(id);
+    if (!v) return;
+    const km = parseFloat(document.getElementById(`km_${id}`).value);
+    const hrs = parseFloat(document.getElementById(`hrs_${id}`).value);
+    if (!isNaN(km)) v.odometerKm = km;
+    if (!isNaN(hrs)) v.engineHours = hrs;
+    saveData();
+    render();
+  }
+
+  function getMaintStatus(v, m) {
+    const sinceKm = v.odometerKm - m.lastKm;
+    const sinceHours = v.engineHours - m.lastHours;
+    let pct = 0;
+    if (m.intervalKm > 0 && m.intervalHours > 0) {
+      pct = Math.max(sinceKm / m.intervalKm, sinceHours / m.intervalHours);
+    } else if (m.intervalKm > 0) {
+      pct = sinceKm / m.intervalKm;
+    } else if (m.intervalHours > 0) {
+      pct = sinceHours / m.intervalHours;
+    }
+    if (pct >= 1) return 'overdue';
+    if (pct >= 0.9) return 'due';
+    return 'ok';
+  }
+
+  function getMaintProgress(v, m) {
+    const sinceKm = v.odometerKm - m.lastKm;
+    const sinceHours = v.engineHours - m.lastHours;
+    let pct = 0;
+    if (m.intervalKm > 0 && m.intervalHours > 0) {
+      pct = Math.max(sinceKm / m.intervalKm, sinceHours / m.intervalHours);
+    } else if (m.intervalKm > 0) {
+      pct = sinceKm / m.intervalKm;
+    } else if (m.intervalHours > 0) {
+      pct = sinceHours / m.intervalHours;
+    }
+    return Math.round(Math.min(pct, 1) * 100);
+  }
+
+  function showToast(msg, type) {
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  function render() {
+    const container = document.getElementById('appContent');
+    let totalDue = 0;
+
+    if (data.vehicles.length === 0) {
+      container.innerHTML = `
+        <div class="empty">
+          <p>No vehicles registered yet.</p>
+          <button class="btn btn-primary" onclick="showModal('vehicle')">+ Add Your First Vehicle</button>
+        </div>`;
+      document.getElementById('notifBadge').classList.remove('show');
+      return;
+    }
+
+    let html = '<div class="vehicles">';
+    for (const v of data.vehicles) {
+      const dueItems = v.maintenance.filter(m => getMaintStatus(v, m) !== 'ok');
+      totalDue += dueItems.length;
+
+      html += `<div class="card">
+        <div class="card-header">
+          <h3>${esc(v.name)} ${v.model ? `<span style="opacity:0.7;font-weight:400;">(${esc(v.model)})</span>` : ''}</h3>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-sm btn-secondary" onclick="editVehicle(${v.id})">Edit</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteVehicle(${v.id})">Del</button>
+          </div>
+        </div>
+        <div class="card-body">
+          ${v.plate ? `<div style="font-size:12px;color:#888;margin-bottom:10px;">${esc(v.plate)}</div>` : ''}
+          <div class="stat-group">
+            <div class="stat"><label>Odometer</label><div class="value">${fmt(v.odometerKm)}</div><div class="unit">km</div></div>
+            <div class="stat"><label>Engine</label><div class="value">${fmt(v.engineHours)}</div><div class="unit">hours</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="btn btn-sm btn-primary" onclick="logTrip(${v.id})" style="flex:1;padding:10px;font-size:14px;">+ Log Trip</button>
+            <button class="btn btn-sm btn-secondary" onclick="toggleUpdate(${v.id})" style="font-size:11px;" id="toggleBtn_${v.id}">Manual</button>
+          </div>
+          <div class="stat-group inline" id="manualUpdate_${v.id}" style="display:none;">
+            <div class="stat">
+              <label>Set absolute values</label>
+              <input type="number" id="km_${v.id}" value="${v.odometerKm}" placeholder="km">
+              <input type="number" id="hrs_${v.id}" value="${v.engineHours}" placeholder="hrs">
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="updateReadings(${v.id})">Set</button>
+          </div>
+          ${v.trips && v.trips.length > 0 ? `
+          <details style="margin-bottom:10px;font-size:12px;">
+            <summary style="cursor:pointer;color:#888;">Trip History (${v.trips.length})</summary>
+            <div style="margin-top:6px;max-height:150px;overflow-y:auto;">
+              ${v.trips.slice().reverse().map(t => `<div style="padding:3px 0;border-bottom:1px solid #eee;">+${t.km} km · +${t.hours}h <span style="color:#999;">${new Date(t.date).toLocaleDateString()}</span></div>`).join('')}
+            </div>
+          </details>` : ''}
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 6px;">
+            <span style="font-weight:600;font-size:14px;">Maintenance</span>
+            <button class="btn btn-sm btn-primary" onclick="addMaintClick(${v.id})">+ Add Task</button>
+          </div>
+
+          ${v.maintenance.length === 0 ? '<div style="font-size:13px;color:#999;">No maintenance tasks defined.</div>' :
+          `<ul class="maint-list">${v.maintenance.map(m => {
+            const status = getMaintStatus(v, m);
+            const pct = getMaintProgress(v, m);
+            const sinceKm = v.odometerKm - m.lastKm;
+            const sinceHours = v.engineHours - m.lastHours;
+            let label = `${sinceKm}/${m.intervalKm}km`;
+            if (m.intervalHours > 0) label += ` · ${sinceHours}/${m.intervalHours}h`;
+            return `<li class="${status}">
+              <div>
+                <div>${esc(m.name)}</div>
+                <div class="interval">${label} (${pct}%)</div>
+              </div>
+              <div class="actions">
+                <button class="btn btn-sm btn-secondary" onclick="editMaintClick(${v.id},${m.id})">Edit</button>
+                <button class="btn btn-sm btn-secondary" onclick="resetMaint(${v.id},${m.id})" title="Reset to current readings">Reset</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteMaint(${v.id},${m.id})">×</button>
+              </div>
+            </li>`;
+          }).join('')}</ul>`}
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+    const badge = document.getElementById('notifBadge');
+    if (totalDue > 0) {
+      badge.textContent = totalDue;
+      badge.classList.add('show');
+      // Show toasts for overdue items that haven't been notified
+      for (const v of data.vehicles) {
+        for (const m of v.maintenance) {
+          if (getMaintStatus(v, m) === 'overdue') {
+            const key = `notified_${v.id}_${m.id}`;
+            if (!sessionStorage.getItem(key)) {
+              showToast(`⚠️ ${v.name}: ${m.name} is overdue!`, 'danger');
+              sessionStorage.setItem(key, '1');
+            }
+          } else if (getMaintStatus(v, m) === 'due') {
+            const key = `notified_due_${v.id}_${m.id}`;
+            if (!sessionStorage.getItem(key)) {
+              showToast(`⚡ ${v.name}: ${m.name} is due soon (90%+)`, 'warn');
+              sessionStorage.setItem(key, '1');
+            }
+          }
+        }
+      }
+    } else {
+      badge.classList.remove('show');
+    }
+  }
+
+  function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function fmt(n) { return Number(n).toLocaleString(); }
+
+  // Handle URL parameters from Shortcuts
+  function handleUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const km = parseFloat(params.get('km'));
+    const hours = parseFloat(params.get('hours'));
+    if (!km && !hours) return;
+
+    const vehicleId = params.get('vehicleId');
+    let vehicle;
+    if (vehicleId) {
+      vehicle = data.vehicles.find(v => v.id === parseInt(vehicleId));
+    } else if (data.vehicles.length === 1) {
+      vehicle = data.vehicles[0];
+    }
+
+    if (!vehicle) {
+      showToast('No vehicle selected. Add a vehicle first or specify vehicleId.', 'danger');
+      return;
+    }
+
+    if (!vehicle.trips) vehicle.trips = [];
+    vehicle.trips.push({ km: km || 0, hours: hours || 0, date: new Date().toISOString() });
+    vehicle.odometerKm += (km || 0);
+    vehicle.engineHours += (hours || 0);
+    saveData();
+
+    showToast(`Trip logged: +${km || 0} km, +${hours || 0} h to ${vehicle.name}`, 'warn');
+
+    // Clean URL without reload
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+
+  loadData();
+  handleUrlParams();
+  render();
+</script>
+</body>
+</html>
