@@ -1,0 +1,47 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Archive App
+        run: |
+          xcodebuild archive \
+            -project MaintenanceTracker.xcodeproj \
+            -scheme MaintenanceTracker \
+            -configuration Release \
+            -archivePath build/MaintenanceTracker.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export IPA
+        run: |
+          mkdir -p build/ipa
+          xcodebuild -exportArchive \
+            -archivePath build/MaintenanceTracker.xcarchive \
+            -exportPath build/ipa \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MaintenanceTracker
+          path: build/ipa/*.ipa
