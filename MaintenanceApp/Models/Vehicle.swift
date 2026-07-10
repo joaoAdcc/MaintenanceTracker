@@ -104,7 +104,7 @@ struct VehicleQuery: EntityStringQuery {
             .map { VehicleEntity(id: $0.id, name: $0.name, model: $0.model) }
     }
 
-    func entities(for ids: [VehicleEntity.ID]) async -> [VehicleEntity]? {
+    func entities(for ids: [VehicleEntity.ID]) async throws -> [VehicleEntity] {
         let vehicles = await DataStore.shared.vehicles
         return vehicles
             .filter { ids.contains($0.id) }

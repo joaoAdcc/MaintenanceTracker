@@ -5,17 +5,13 @@ struct AddTripIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Trip"
     static let description = IntentDescription("Log a trip with distance and engine hours to a vehicle.")
 
-    static var parameterSummary: some ParameterSummary {
-        Summary("Log \(\.$distance) km and \(\.$hours) hours to \(\.$vehicle)")
-    }
-
     @Parameter(title: "Vehicle")
     var vehicle: VehicleEntity?
 
-    @Parameter(title: "Distance (km)", controlStyle: .field, inclusiveRangeFor: 0...1_000_000)
+    @Parameter(title: "Distance (km)", controlStyle: .field, inclusiveRange: (lowerBound: 0.0, upperBound: 1_000_000.0))
     var distance: Double?
 
-    @Parameter(title: "Engine Hours", controlStyle: .field, inclusiveRangeFor: 0...1_000_000)
+    @Parameter(title: "Engine Hours", controlStyle: .field, inclusiveRange: (lowerBound: 0.0, upperBound: 1_000_000.0))
     var hours: Double?
 
     @MainActor
@@ -60,7 +56,7 @@ struct IntentTrip: AppEntity {
 }
 
 struct IntentTripQuery: EntityQuery {
-    func entities(for ids: [UUID]) async -> [IntentTrip]? { nil }
+    func entities(for ids: [UUID]) async throws -> [IntentTrip] { [] }
     func suggestedEntities() async -> [IntentTrip] { [] }
 }
 
