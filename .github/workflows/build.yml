@@ -21,24 +21,26 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen generate
 
-      - name: Archive App
+      - name: Build App
         run: |
-          xcodebuild archive \
+          xcodebuild \
             -project MaintenanceTracker.xcodeproj \
             -scheme MaintenanceTracker \
             -configuration Release \
-            -archivePath build/MaintenanceTracker.xcarchive \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
-      - name: Export IPA
+      - name: Package IPA
         run: |
-          mkdir -p build/ipa
-          xcodebuild -exportArchive \
-            -archivePath build/MaintenanceTracker.xcarchive \
-            -exportPath build/ipa \
-            -exportOptionsPlist ExportOptions.plist
+          mkdir -p build/ipa/Payload
+          cp -R "build/DerivedData/Build/Products/Release-iphoneos/MaintenanceTracker.app" "build/ipa/Payload/"
+          cd build/ipa
+          zip -r MaintenanceTracker.ipa Payload/
+          rm -rf Payload
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
