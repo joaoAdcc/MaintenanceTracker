@@ -608,9 +608,11 @@
     return false;
   }
 
+  let syncTimer = null;
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    syncToGitHub(true);
+    if (syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => syncToGitHub(true), 2000);
   }
 
   // ── Init ────────────────────────────────────────────────
