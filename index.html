@@ -231,7 +231,7 @@
       const res = await fetch(JSONBLOB_URL + '?t=' + Date.now());
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const remote = await res.json();
-      if (remote.vehicles && Array.isArray(remote.vehicles)) {
+      if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
         data = remote;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         return true;
@@ -572,7 +572,10 @@
   // ── Init ────────────────────────────────────────────────
   async function init() {
     const ok = await loadFromJsonBlob();
-    if (!ok) loadData();
+    if (!ok) {
+      loadData();
+      if (data.vehicles.length > 0) syncToJsonBlob();
+    }
 
     const params = new URLSearchParams(window.location.search);
     const km = parseFloat(params.get('km'));
