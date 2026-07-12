@@ -202,7 +202,7 @@
     <label>Personal Access Token</label>
     <input id="patInput" type="password" placeholder="Paste your PAT here">
     <button class="btn btn-primary" onclick="savePat()" style="width:100%;margin-bottom:8px;">Save Token</button>
-    <button class="btn btn-secondary" onclick="syncToGitHub()" style="width:100%;margin-bottom:4px;">Push Local Data to GitHub</button>
+    <button class="btn btn-primary" onclick="doSync()" style="width:100%;margin-bottom:4px;">Push Local Data to GitHub</button>
     <button class="btn btn-secondary" onclick="loadFromGitHub()" style="width:100%;">Pull from GitHub</button>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="hideModal('sync')">Close</button>
@@ -568,9 +568,9 @@
     hideModal('sync');
   }
 
-  async function syncToGitHub() {
+  async function syncToGitHub(silent) {
     const pat = getPat();
-    if (!pat) { showToast('Save your PAT first in ⚙️', 'danger'); return; }
+    if (!pat) { if (!silent) showToast('Save your PAT first in ⚙️', 'danger'); return; }
     try {
       const metaRes = await fetch(GITHUB_API, {
         headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github.v3+json' }
@@ -584,10 +584,12 @@
         headers: { Authorization: 'Bearer ' + pat, 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
-      if (!putRes.ok) throw new Error('Sync failed');
-      showToast('Data synced to GitHub!', 'success');
+      if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
+      showToast('Synced to GitHub!', 'success');
     } catch (e) { showToast('Sync error: ' + e.message, 'danger'); }
   }
+
+  function doSync() { syncToGitHub(false); }
 
   async function loadFromGitHub() {
     try {
@@ -608,25 +610,12 @@
 
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    const pat = getPat();
-    if (pat) {
-      fetch(GITHUB_API, {
-        headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github.v3+json' }
-      }).then(r => r.ok ? r.json() : Promise.reject()).then(meta => {
-        const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-        fetch(GITHUB_API, {
-          method: 'PUT',
-          headers: { Authorization: 'Bearer ' + pat, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'Auto-sync', content: content, sha: meta.sha })
-        }).catch(() => {});
-      }).catch(() => {});
-    }
+    syncToGitHub(true);
   }
 
   // ── Init ────────────────────────────────────────────────
   async function init() {
-    const ok = await loadFromGitHub();
-    if (!ok) loadData();
+    loadData();
 
     const params = new URLSearchParams(window.location.search);
     const km = parseFloat(params.get('km'));
