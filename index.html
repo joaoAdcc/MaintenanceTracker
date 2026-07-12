@@ -268,8 +268,6 @@
     if (!v) return;
     if (!v.trips) v.trips = [];
     v.trips.push({ km, hours, date: new Date().toISOString() });
-    v.odometerKm += km;
-    v.engineHours += hours;
     saveData();
     hideModal('trip');
     render();
@@ -286,12 +284,12 @@
     if (editingVehicleId) {
       const v = getVehicle(editingVehicleId);
       v.name = name; v.model = model; v.plate = plate;
-      v.odometerKm = km; v.engineHours = hours;
+      v.baseKm = km; v.baseHours = hours;
     } else {
       data.vehicles.push({
         id: data.nextId++,
         name, model, plate,
-        odometerKm: km, engineHours: hours,
+        baseKm: km, baseHours: hours,
         maintenance: []
       });
     }
@@ -307,8 +305,8 @@
     document.getElementById('vName').value = v.name;
     document.getElementById('vModel').value = v.model || '';
     document.getElementById('vPlate').value = v.plate || '';
-    document.getElementById('vKm').value = v.odometerKm;
-    document.getElementById('vHours').value = v.engineHours;
+    document.getElementById('vKm').value = v.baseKm || 0;
+    document.getElementById('vHours').value = v.baseHours || 0;
     document.getElementById('vehicleModalTitle').textContent = 'Edit Vehicle';
     showModal('vehicle');
   }
@@ -396,10 +394,12 @@
   function updateReadings(id) {
     const v = getVehicle(id);
     if (!v) return;
-    const km = parseFloat(document.getElementById(`km_${id}`).value);
-    const hrs = parseFloat(document.getElementById(`hrs_${id}`).value);
-    if (!isNaN(km)) v.odometerKm = km;
-    if (!isNaN(hrs)) v.engineHours = hrs;
+    const totalKm = parseFloat(document.getElementById(`km_${id}`).value);
+    const totalHrs = parseFloat(document.getElementById(`hrs_${id}`).value);
+    const tripKm = v.trips ? v.trips.reduce((s,t) => s + (t.km||0), 0) : 0;
+    const tripHrs = v.trips ? v.trips.reduce((s,t) => s + (t.hours||0), 0) : 0;
+    if (!isNaN(totalKm)) v.baseKm = totalKm - tripKm;
+    if (!isNaN(totalHrs)) v.baseHours = totalHrs - tripHrs;
     saveData();
     render();
   }
@@ -456,6 +456,22 @@
       document.getElementById('notifBadge').classList.remove('show');
       return;
     }
+
+    // Recalculate totals from base + trips
+    for (const v of data.vehicles) {
+      const baseKm = v.baseKm || 0;
+      const baseHrs = v.baseHours || 0;
+      let tripKm = 0, tripHrs = 0;
+      if (v.trips) {
+        for (const t of v.trips) {
+          tripKm += t.km || 0;
+          tripHrs += t.hours || 0;
+        }
+      }
+      v.odometerKm = baseKm + tripKm;
+      v.engineHours = baseHrs + tripHrs;
+    }
+    saveData();
 
     let html = '<div class="vehicles">';
     for (const v of data.vehicles) {
@@ -634,8 +650,6 @@
       if (vehicle) {
         if (!vehicle.trips) vehicle.trips = [];
         vehicle.trips.push({ km: km || 0, hours: hours || 0, date: new Date().toISOString() });
-        vehicle.odometerKm += (km || 0);
-        vehicle.engineHours += (hours || 0);
         saveData();
         showToast(`Trip logged: +${km || 0} km, +${hours || 0} h to ${vehicle.name}`, 'success');
       } else {
