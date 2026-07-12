@@ -192,7 +192,7 @@
 
 <script>
   const STORAGE_KEY = 'vm_tracker';
-  const JSONBLOB_URL = 'https://jsonblob.com/api/jsonBlob/019f5831-5d05-72a5-8f24-19497f57d6b2';
+  const GITHUB_RAW = 'https://raw.githubusercontent.com/joaoAdcc/MaintenanceTracker/main/data.json';
   let data = { vehicles: [], nextId: 1 };
   let editingVehicleId = null;
   let editingMaintVehicleId = null;
@@ -201,43 +201,10 @@
 
   function loadData() {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try { data = JSON.parse(raw); } catch (e) { data = { vehicles: [], nextId: 1 }; }
-    }
+    if (raw) try { data = JSON.parse(raw); } catch (e) {}
   }
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    syncToJsonBlob();
-  }
-
-  let syncPending = false;
-  async function syncToJsonBlob() {
-    if (syncPending) return;
-    syncPending = true;
-    try {
-      await fetch(JSONBLOB_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-    } catch (e) {
-      console.warn('jsonblob sync failed', e);
-    }
-    syncPending = false;
-  }
-
-  async function loadFromJsonBlob() {
-    try {
-      const res = await fetch(JSONBLOB_URL + '?t=' + Date.now());
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const remote = await res.json();
-      if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
-        data = remote;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        return true;
-      }
-    } catch (e) { /* ignore */ }
-    return false;
   }
 
   function getVehicle(id) { return data.vehicles.find(v => v.id === id); }
@@ -543,7 +510,6 @@
     if (totalDue > 0) {
       badge.textContent = totalDue;
       badge.classList.add('show');
-      // Show toasts for overdue items that haven't been notified
       for (const v of data.vehicles) {
         for (const m of v.maintenance) {
           if (getMaintStatus(v, m) === 'overdue') {
@@ -571,11 +537,17 @@
 
   // ── Init ────────────────────────────────────────────────
   async function init() {
-    const ok = await loadFromJsonBlob();
-    if (!ok) {
-      loadData();
-      if (data.vehicles.length > 0) syncToJsonBlob();
-    }
+    try {
+      const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+      if (res.ok) {
+        const remote = await res.json();
+        if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
+          data = remote;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+      }
+    } catch (e) { /* offline, use localStorage */ }
+    if (data.vehicles.length === 0) loadData();
 
     const params = new URLSearchParams(window.location.search);
     const km = parseFloat(params.get('km'));
