@@ -122,6 +122,7 @@
     <h1>🔧 Vehicle <span>Maintenance</span> Tracker</h1>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="notifBadge" class="notif-badge">0</span>
+      <button class="btn btn-sm btn-secondary" onclick="showModal('sync')" style="font-size:11px;padding:4px 10px;background:transparent;border:1px solid #555;">⚙️</button>
       <button class="btn btn-primary" onclick="showModal('vehicle')">+ Add Vehicle</button>
     </div>
   </header>
@@ -190,9 +191,30 @@
   </div>
 </div>
 
+<!-- Sync Modal -->
+<div class="modal-overlay" id="syncModal">
+  <div class="modal">
+    <h2>GitHub Sync</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:12px;">
+      Create a PAT at <a href="https://github.com/settings/tokens/new" target="_blank" style="color:#e94560;">github.com/settings/tokens</a>
+      with <code>public_repo</code> scope. Paste it below to enable syncing.
+    </p>
+    <label>Personal Access Token</label>
+    <input id="patInput" type="password" placeholder="github_pat_xxxxxxxxxxx">
+    <button class="btn btn-primary" onclick="savePat()" style="width:100%;margin-bottom:8px;">Save Token</button>
+    <button class="btn btn-secondary" onclick="syncToGitHub()" style="width:100%;margin-bottom:4px;">Push Local Data to GitHub</button>
+    <button class="btn btn-secondary" onclick="loadFromGitHub()" style="width:100%;">Pull from GitHub</button>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal('sync')">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const STORAGE_KEY = 'vm_tracker';
   const GITHUB_RAW = 'https://raw.githubusercontent.com/joaoAdcc/MaintenanceTracker/main/data.json';
+  const GITHUB_API = 'https://api.github.com/repos/joaoAdcc/MaintenanceTracker/contents/data.json';
+  const GITHUB_REPO = 'joaoAdcc/MaintenanceTracker';
   let data = { vehicles: [], nextId: 1 };
   let editingVehicleId = null;
   let editingMaintVehicleId = null;
@@ -535,19 +557,79 @@
   function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
   function fmt(n) { return Number(n).toLocaleString(); }
 
-  // ── Init ────────────────────────────────────────────────
-  async function init() {
+  // ── GitHub Sync ─────────────────────────────────────────
+  function getPat() { return localStorage.getItem('gh_pat'); }
+  function setPat(t) { if (t) localStorage.setItem('gh_pat', t); else localStorage.removeItem('gh_pat'); }
+
+  function savePat() {
+    const t = document.getElementById('patInput').value.trim();
+    if (!t) { alert('Enter your token'); return; }
+    setPat(t);
+    showToast('Token saved!', 'success');
+    hideModal('sync');
+  }
+
+  async function syncToGitHub() {
+    const pat = getPat();
+    if (!pat) { showToast('Save your PAT first in ⚙️', 'danger'); return; }
+    try {
+      const metaRes = await fetch(GITHUB_API, {
+        headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!metaRes.ok && metaRes.status !== 404) throw new Error('HTTP ' + metaRes.status);
+      const sha = metaRes.ok ? (await metaRes.json()).sha : undefined;
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+      const body = { message: 'Sync from web app', content: content };
+      if (sha) body.sha = sha;
+      const putRes = await fetch(GITHUB_API, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + pat, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!putRes.ok) throw new Error('Sync failed: ' + (await putRes.text()));
+      showToast('Data synced to GitHub!', 'success');
+    } catch (e) { showToast('Sync error: ' + e.message, 'danger'); }
+  }
+
+  async function loadFromGitHub() {
     try {
       const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
       if (res.ok) {
         const remote = await res.json();
-        if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
+        if (remote.vehicles && Array.isArray(remote.vehicles)) {
           data = remote;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+          render();
+          showToast('Loaded from GitHub', 'success');
+          return true;
         }
       }
-    } catch (e) { /* offline, use localStorage */ }
-    if (data.vehicles.length === 0) loadData();
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function saveData() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const pat = getPat();
+    if (pat) {
+      fetch(GITHUB_API, {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github.v3+json' }
+      }).then(r => r.ok ? r.json() : Promise.reject()).then(meta => {
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+        fetch(GITHUB_API, {
+          method: 'PUT',
+          headers: { Authorization: 'Bearer ' + pat, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'Auto-sync', content: content, sha: meta.sha })
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+  }
+
+  // ── Init ────────────────────────────────────────────────
+  async function init() {
+    const ok = await loadFromGitHub();
+    if (!ok) loadData();
 
     const params = new URLSearchParams(window.location.search);
     const km = parseFloat(params.get('km'));
