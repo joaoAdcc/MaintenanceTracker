@@ -122,7 +122,6 @@
     <h1>🔧 Vehicle <span>Maintenance</span> Tracker</h1>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="notifBadge" class="notif-badge">0</span>
-      <button class="btn btn-sm btn-secondary" onclick="showModal('settings')" style="font-size:11px;">Sync</button>
       <button class="btn btn-primary" onclick="showModal('vehicle')">+ Add Vehicle</button>
     </div>
   </header>
@@ -131,28 +130,6 @@
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
-
-<!-- Settings Modal -->
-<div class="modal-overlay" id="settingsModal">
-  <div class="modal">
-    <h2>GitHub Sync</h2>
-    <p style="font-size:13px;color:#666;margin-bottom:12px;">
-      Syncing lets your Shortcuts and web app share the same data via GitHub.
-    </p>
-    <label>GitHub Personal Access Token</label>
-    <input id="patInput" type="password" placeholder="ghp_xxxxxxxxxxxx">
-    <button class="btn btn-primary" onclick="savePat()" style="width:100%;margin-bottom:8px;">Save Token</button>
-    <button class="btn btn-secondary" onclick="syncToGitHub()" style="width:100%;margin-bottom:8px;">Sync Now</button>
-    <div style="font-size:12px;color:#888;">
-      <strong>Need a token?</strong> Create one at
-      <a href="https://github.com/settings/tokens" target="_blank" style="color:#e94560;">github.com/settings/tokens</a>
-      with <code>repo</code> scope.
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="hideModal('settings')">Close</button>
-    </div>
-  </div>
-</div>
 
 <!-- Vehicle Modal -->
 <div class="modal-overlay" id="vehicleModal">
@@ -215,6 +192,7 @@
 
 <script>
   const STORAGE_KEY = 'vm_tracker';
+  const JSONBLOB_URL = 'https://jsonblob.com/api/jsonBlob/019f5831-5d05-72a5-8f24-19497f57d6b2';
   let data = { vehicles: [], nextId: 1 };
   let editingVehicleId = null;
   let editingMaintVehicleId = null;
@@ -229,45 +207,50 @@
   }
   function saveData() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    syncToJsonBlob();
+  }
+
+  let syncPending = false;
+  async function syncToJsonBlob() {
+    if (syncPending) return;
+    syncPending = true;
+    try {
+      await fetch(JSONBLOB_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    } catch (e) {
+      console.warn('jsonblob sync failed', e);
+    }
+    syncPending = false;
+  }
+
+  async function loadFromJsonBlob() {
+    try {
+      const res = await fetch(JSONBLOB_URL + '?t=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const remote = await res.json();
+      if (remote.vehicles && Array.isArray(remote.vehicles)) {
+        data = remote;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        return true;
+      }
+    } catch (e) { /* ignore */ }
+    return false;
   }
 
   function getVehicle(id) { return data.vehicles.find(v => v.id === id); }
 
-  function showModal(type, ...args) {
-    if (type === 'vehicle') {
-      document.getElementById('vehicleModal').classList.add('active');
-    } else if (type === 'maint') {
-      document.getElementById('maintModal').classList.add('active');
-    } else if (type === 'trip') {
-      document.getElementById('tripModal').classList.add('active');
-    } else if (type === 'settings') {
-      document.getElementById('patInput').value = getPat() || '';
-      document.getElementById('settingsModal').classList.add('active');
-    }
+  function showModal(type) {
+    document.getElementById(type + 'Modal').classList.add('active');
   }
   function hideModal(type) {
-    if (type === 'vehicle') {
-      document.getElementById('vehicleModal').classList.remove('active');
-      editingVehicleId = null;
-    } else if (type === 'maint') {
-      document.getElementById('maintModal').classList.remove('active');
-      editingMaintVehicleId = null;
-      editingMaintId = null;
-    } else if (type === 'trip') {
-      document.getElementById('tripModal').classList.remove('active');
-      tripVehicleId = null;
-    } else if (type === 'settings') {
-      document.getElementById('settingsModal').classList.remove('active');
-    }
+    document.getElementById(type + 'Modal').classList.remove('active');
+    if (type === 'vehicle') editingVehicleId = null;
+    if (type === 'maint') { editingMaintVehicleId = null; editingMaintId = null; }
+    if (type === 'trip') tripVehicleId = null;
     clearModalFields(type);
-  }
-
-  function savePat() {
-    const token = document.getElementById('patInput').value.trim();
-    if (!token) { alert('Enter your GitHub token'); return; }
-    setPat(token);
-    showToast('Token saved!', 'success');
-    hideModal('settings');
   }
 
   function clearModalFields(type) {
@@ -586,69 +569,11 @@
   function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
   function fmt(n) { return Number(n).toLocaleString(); }
 
-  // ── GitHub Sync ──────────────────────────────────────────
-  const GITHUB_REPO = 'joaoAdcc/MaintenanceTracker';
-  const GITHUB_RAW = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/data.json`;
-
-  function getPat() { return localStorage.getItem('github_pat'); }
-
-  function setPat(token) {
-    if (token) localStorage.setItem('github_pat', token);
-    else localStorage.removeItem('github_pat');
-  }
-
-  async function loadFromGitHub() {
-    try {
-      const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const remote = await res.json();
-      data = remote;
-      saveData();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  async function syncToGitHub() {
-    const pat = getPat();
-    if (!pat) { showToast('Set your GitHub token in Settings first.', 'danger'); return; }
-
-    try {
-      // Get current file SHA
-      const metaRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data.json`, {
-        headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github.v3+json' }
-      });
-      if (!metaRes.ok) throw new Error('Failed to get file info');
-      const meta = await metaRes.json();
-
-      // Update file
-      const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-      const putRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/data.json`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: 'Sync from web app',
-          content: content,
-          sha: meta.sha
-        })
-      });
-      if (!putRes.ok) throw new Error('Sync failed: ' + (await putRes.text()));
-      showToast('Data synced to GitHub!', 'success');
-    } catch (e) {
-      showToast('Sync error: ' + e.message, 'danger');
-    }
-  }
-
   // ── Init ────────────────────────────────────────────────
   async function init() {
-    // Try GitHub first
-    const githubOk = await loadFromGitHub();
-    if (!githubOk) {
-      loadData();
-    }
+    const ok = await loadFromJsonBlob();
+    if (!ok) loadData();
 
-    // Handle URL params (from Shortcuts)
     const params = new URLSearchParams(window.location.search);
     const km = parseFloat(params.get('km'));
     const hours = parseFloat(params.get('hours'));
