@@ -6,8 +6,15 @@
       "model": "2000",
       "plate": "88-44-OX",
       "odometerKm": 0,
-      "engineHours": 0,
-      "maintenance": []
+      "engineHours": 10,
+      "maintenance": [],
+      "trips": [
+        {
+          "km": 0,
+          "hours": 10,
+          "date": "2026-07-12T23:32:26.277Z"
+        }
+      ]
     }
   ],
   "nextId": 2
