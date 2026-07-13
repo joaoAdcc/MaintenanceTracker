@@ -471,7 +471,6 @@
       v.odometerKm = baseKm + tripKm;
       v.engineHours = baseHrs + tripHrs;
     }
-    saveData();
 
     let html = '<div class="vehicles">';
     for (const v of data.vehicles) {
@@ -633,7 +632,18 @@
 
   // ── Init ────────────────────────────────────────────────
   async function init() {
-    loadData();
+    // Load from GitHub first (source of truth for Shortcut data)
+    try {
+      const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
+      if (res.ok) {
+        const remote = await res.json();
+        if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
+          data = remote;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+      }
+    } catch (e) { /* offline */ }
+    if (data.vehicles.length === 0) loadData();
 
     const params = new URLSearchParams(window.location.search);
     const km = parseFloat(params.get('km'));
