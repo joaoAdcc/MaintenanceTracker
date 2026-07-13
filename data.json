@@ -8,7 +8,7 @@
       "odometerKm": 0,
       "engineHours": 10,
       "maintenance": [],
-      "trips": [
+      "trips" :  [ {"km":100,"hours":0,"date":"2026-07-12T23:32:26.277Z"},
         {
           "km": 0,
           "hours": 10,
