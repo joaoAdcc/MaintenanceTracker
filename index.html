@@ -600,7 +600,7 @@
         headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github.v3+json' }
       });
       const sha = metaRes.ok ? (await metaRes.json()).sha : undefined;
-      const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
       const body = { message: 'Sync from web app', content: content };
       if (sha) body.sha = sha;
       const putRes = await fetch(GITHUB_API, {
