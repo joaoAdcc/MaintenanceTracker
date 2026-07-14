@@ -621,7 +621,7 @@
       const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
       if (res.ok) {
         const meta = await res.json();
-        const json = atob(meta.content);
+        const json = atob(meta.content.replace(/\s/g, ''));
         const remote = JSON.parse(json);
         if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
           data = remote;
@@ -651,7 +651,7 @@
       const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
       if (res.ok) {
         const meta = await res.json();
-        const json = atob(meta.content);
+        const json = atob(meta.content.replace(/\s/g, ''));
         const remote = JSON.parse(json);
         if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
           data = remote;
