@@ -12,11 +12,16 @@
           "km": 1110,
           "hours": 0,
           "date": "2026-07-14T00:39:12.401Z"
+        },
+        {
+          "km": 0,
+          "hours": 100,
+          "date": "2026-07-14T00:44:28.118Z"
         }
       ],
       "maintenance": [],
       "odometerKm": 1110,
-      "engineHours": 0
+      "engineHours": 100
     }
   ],
   "nextId": 3
