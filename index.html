@@ -295,6 +295,7 @@
         id: data.nextId++,
         name, model, plate,
         baseKm: km, baseHours: hours,
+        trips: [],
         maintenance: []
       });
     }
@@ -653,6 +654,11 @@
       }
     } catch (e) { /* offline */ }
     if (data.vehicles.length === 0) loadData();
+    // Ensure all vehicles have trips array
+    for (const v of data.vehicles) {
+      if (!v.trips) v.trips = [];
+      if (!v.maintenance) v.maintenance = [];
+    }
 
     const params = new URLSearchParams(window.location.search);
     const km = parseFloat(params.get('km'));
