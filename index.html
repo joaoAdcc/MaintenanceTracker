@@ -212,7 +212,7 @@
 
 <script>
   const STORAGE_KEY = 'vm_tracker';
-  const GITHUB_RAW = 'https://raw.githubusercontent.com/joaoAdcc/MaintenanceTracker/main/data.json';
+  const GITHUB_RAW = 'https://api.github.com/repos/joaoAdcc/MaintenanceTracker/contents/data.json';
   const GITHUB_API = 'https://api.github.com/repos/joaoAdcc/MaintenanceTracker/contents/data.json';
   let data = { vehicles: [], nextId: 1 };
   let editingVehicleId = null;
@@ -610,7 +610,9 @@
     try {
       const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
       if (res.ok) {
-        const remote = await res.json();
+        const meta = await res.json();
+        const json = atob(meta.content);
+        const remote = JSON.parse(json);
         if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
           data = remote;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -632,11 +634,13 @@
 
   // ── Init ────────────────────────────────────────────────
   async function init() {
-    // Load from GitHub first (source of truth for Shortcut data)
+    // Load from GitHub API first (always fresh, bypasses CDN cache)
     try {
       const res = await fetch(GITHUB_RAW + '?t=' + Date.now());
       if (res.ok) {
-        const remote = await res.json();
+        const meta = await res.json();
+        const json = atob(meta.content);
+        const remote = JSON.parse(json);
         if (remote.vehicles && Array.isArray(remote.vehicles) && remote.vehicles.length > 0) {
           data = remote;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
