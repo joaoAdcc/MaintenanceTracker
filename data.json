@@ -1,1 +1,1 @@
-{"nextId":3,"vehicles":[{"baseKm":0,"baseHours":0,"engineHours":0,"id":2,"plate":"88-44-OX","model":"2000","trips": [ {"km":0,"hours":0.765,"date":"2026-07-14T10:58:19+01:00"},],"odometerKm":0,"name":"KLX300R","maintenance":[]}]}
+{"nextId":3,"vehicles":[{"baseKm":0,"baseHours":0,"engineHours":0,"id":2,"plate":"88-44-OX","model":"2000","trips": [ {"km":0,"hours":0.792777777777778,"date":"2026-07-14T10:59:38+01:00"},{"hours":0.76500000000000001,"date":"2026-07-14T10:58:19+01:00","km":0}],"odometerKm":0,"name":"KLX300R","maintenance":[]}]}
