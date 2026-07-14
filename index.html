@@ -199,7 +199,7 @@
       Create a PAT at <a href="https://github.com/settings/tokens/new" target="_blank" style="color:#e94560;">github.com/settings/tokens</a>
       (scope: <code>public_repo</code>). You only need this once.
     </p>
-    <label>Personal Access Token</label>
+    <label>Personal Access Token <span id="patStatus" style="font-size:11px;color:#888;"></span></label>
     <input id="patInput" type="password" placeholder="Paste your PAT here">
     <button class="btn btn-primary" onclick="savePat()" style="width:100%;margin-bottom:8px;">Save Token</button>
     <button class="btn btn-primary" onclick="doSync()" style="width:100%;margin-bottom:4px;">Push Local Data to GitHub</button>
@@ -232,6 +232,11 @@
 
   function showModal(type) {
     document.getElementById(type + 'Modal').classList.add('active');
+    if (type === 'sync') {
+      const pat = getPat();
+      document.getElementById('patInput').value = pat || '';
+      document.getElementById('patStatus').textContent = pat ? '✓ Saved' : '';
+    }
   }
   function hideModal(type) {
     document.getElementById(type + 'Modal').classList.remove('active');
@@ -600,7 +605,7 @@
         body: JSON.stringify(body)
       });
       if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
-      showToast('Synced to GitHub!', 'success');
+      if (!silent) showToast('Synced to GitHub!', 'success');
     } catch (e) { showToast('Sync error: ' + e.message, 'danger'); }
   }
 
