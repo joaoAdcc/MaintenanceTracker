@@ -5,16 +5,23 @@
       "name": "Klx300r",
       "model": "2000",
       "plate": "88-44-OX",
-      "odometerKm": 0,
+      "odometerKm": 100,
       "engineHours": 10,
       "maintenance": [],
-      "trips" :  [ {"km":100,"hours":0,"date":"2026-07-12T23:32:26.277Z"},
+      "trips": [
+        {
+          "km": 100,
+          "hours": 0,
+          "date": "2026-07-12T23:32:26.277Z"
+        },
         {
           "km": 0,
           "hours": 10,
           "date": "2026-07-12T23:32:26.277Z"
         }
-      ]
+      ],
+      "baseKm": 0,
+      "baseHours": 0
     }
   ],
   "nextId": 2
