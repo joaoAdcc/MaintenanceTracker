@@ -7,7 +7,8 @@
       "plate": "88-44-OX",
       "baseKm": 0,
       "baseHours": 0,
-      "trips": [
+      "trips": [ 
+{"km":10,"hours":0,"date":"2026-07-12T23:32:26.277Z"},
         {
           "km": 1110,
           "hours": 0,
