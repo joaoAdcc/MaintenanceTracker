@@ -1,1 +1,1 @@
-{"nextId":4,"vehicles":[{"id":3,"name":"Klx","model":"Klx300r","plate":"8844OX","baseKm":0,"baseHours":0,"trips":[{"km":0,"hours":-7.17083333333333,"date":"2026-07-24T14:31:41.999Z"}],"maintenance":[],"odometerKm":0,"engineHours":-7.17083333333333}]}
+{"nextId":4,"vehicles":[{"id":3,"name":"Klx","model":"Klx300r","plate":"8844OX","baseKm":0,"baseHours":7.17083333333333,"trips":[{"km":0,"hours":-7.17083333333333,"date":"2026-07-24T14:31:41.999Z"}],"maintenance":[],"odometerKm":0,"engineHours":0}]}
